@@ -1,0 +1,11 @@
+Execute these commands to test the program:
+
+    mkdir build
+    cd build
+    cmake ..
+    make
+    cd ..
+    ./test-reg.sh
+
+The expected results for the parameters, semblance 
+and stack are located in expected.out
