@@ -32,14 +32,14 @@ float interpol_linear(float x0, float x1, float y0, float y1, float x)
  * from the aperture. The 'stack' is the average of the values from the traces
  * intersected by the fitted curve
  */
-float semblance_2d(aperture_t *ap,
+float semblance_2d(aperture_t *ap, su_trace_t *traces_s,
         float A, float B, float C, float D, float E,
         float t0, float m0, float h0,
         float *stack)
 {
     /* Get the sample rate from the first trace inside the aperture,
        it is the same value for all other traces */
-    su_trace_t *tr = vector_get(ap->traces, 0);
+    su_trace_t *tr = &traces_s[0];
     float dt = (float) tr->dt / 1000000;
     float idt = 1 / dt;
 
@@ -56,8 +56,8 @@ float semblance_2d(aperture_t *ap,
     int M = 0, skip = 0;
     float _stack = 0;
 
-    for (int i = 0; i < ap->traces.len; i++) {
-        tr = vector_get(ap->traces, i);
+    for (int i = 0; i < ap->len; i++) {
+        tr = &traces_s[i];
 
         /* Get the trace coordinates in the midpoint and halfoffset spaces */
         float mx, my, hx, hy;

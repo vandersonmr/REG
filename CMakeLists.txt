@@ -25,4 +25,4 @@ add_executable(reg
     semblance.c
     su.c)
 
-target_link_libraries(reg m)
+target_link_libraries(reg m OpenCL)

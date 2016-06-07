@@ -3,36 +3,28 @@
 #include <float.h>
 #include <math.h>
 #include <utils.h>
-#include <vector.h>
 #include <semblance.h>
 #include <su.h>
 #include <errno.h>
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#include <unistd.h>
+#else
+#include <CL/cl.h>
+#endif
 
-/*
- * compute_max finds the best parameters 'Aopt', 'Bopt', 'Copt', 'Dopt' and 'Eopt' 
- * that fit a curve to the data in 'ap' from a reference point (m0, h0, t0). Also 
- * returning its fit (coherence/semblance) through 'sem' and the average of values 
- * along the curve through 'stack'
- *
- * The lower limit for searching each parameter is specified as a element in the 
- * vector 'n0' and the upper limit in vector 'n1', the number of divisions for 
- * the search space is specified through 'np'
- */
-void compute_max(aperture_t *ap, float m0, float h0, float t0,
-    const float n0[5], const float n1[5], const int np[5], float *Aopt,
+#include "err_code.h"
+
+/*void compute_max(aperture_t *ap, su_trace_t *traces_s, float m0, float h0,
+    float t0, const float n0[5], const float n1[5], const int np[5], float *Aopt,
     float *Bopt, float *Copt, float *Dopt, float *Eopt, float *sem,
     float *stack)
 {
-    /* The parallel version of the code will compute the best parameters for 
-     * each value of the parameter 'A', so we need to store np[0] different 
-     * values of each parameter, stack and semblance */
     float _Aopt[np[0]], _Bopt[np[0]], _Copt[np[0]], 
           _Dopt[np[0]], _Eopt[np[0]];
     float smax[np[0]];
     float _stack[np[0]];
 
-    /* Split the outermost loop between threads. Each thread will
-     * compute the best fit for a given parameter 'A' value */
     #pragma omp parallel for schedule(dynamic)
     for (int ia = 0; ia < np[0]; ia++) {
         smax[ia] = -1;
@@ -46,9 +38,8 @@ void compute_max(aperture_t *ap, float m0, float h0, float t0,
                     for (int ie = 0; ie < np[4]; ie++) {
                         float e = n0[4] + ((float)ie / (float)np[4])*(n1[4]-n0[4]);
                         float st;
-                        /* Check the fit of the parameters to the data and update the 
-                         * maximum for that point if necessary */
-                        float s = semblance_2d(ap, a, b, c, d, e, t0, m0, h0, &st);
+
+                        float s = semblance_2d(ap, traces_s, a, b, c, d, e, t0, m0, h0, &st);
                         if (s > smax[ia]) {
                             smax[ia] = s;
                             _stack[ia] = st;
@@ -61,12 +52,9 @@ void compute_max(aperture_t *ap, float m0, float h0, float t0,
                     }
                 }
             }
-            /* Uncomment this to roughly check the progress */
-            /* fprintf(stderr, "."); */
         }
     }
 
-    /* Now find the best fit between different 'A' values */
     float ssmax = -1.0;
     *stack = 0;
     for (int ia = 0; ia < np[0]; ia++) {
@@ -81,11 +69,86 @@ void compute_max(aperture_t *ap, float m0, float h0, float t0,
             ssmax = smax[ia];
         }
     }
-}
+}*/
+
+#ifndef DEVICE
+#define DEVICE CL_DEVICE_TYPE_DEFAULT
+#endif
+
+#define MAX_SOURCE_SIZE (0x100000)
 
 int main(int argc, char *argv[])
 {
     int i;
+
+    cl_int          err;               // error code returned from OpenCL calls
+    size_t global;                  // global domain size
+
+    cl_device_id     device_id;     // compute device id
+    cl_context       context;       // compute context
+    cl_command_queue commands;      // compute command queue
+    cl_program       program;       // compute program
+    cl_kernel        kernel;       // compute kernel
+
+    cl_uint numPlatforms;
+
+    err = clGetPlatformIDs(0, NULL, &numPlatforms);
+    if (numPlatforms == 0)
+    {
+        printf("Found 0 platforms!\n");
+        return EXIT_FAILURE;
+    }
+
+    cl_platform_id Platform[numPlatforms];
+    err = clGetPlatformIDs(numPlatforms, Platform, NULL);
+
+    for (i = 0; i < numPlatforms; i++)
+    {
+        err = clGetDeviceIDs(Platform[i], DEVICE, 1, &device_id, NULL);
+        if (err == CL_SUCCESS)
+        {
+            break;
+        }
+    }
+
+    context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
+
+    commands = clCreateCommandQueue(context, device_id, 0, &err);
+
+    FILE *kernel_fp;
+    const char file_name[] = "./kernel.cl";
+    kernel_fp = fopen(file_name, "r");
+    size_t source_size;
+    char *source_str;
+
+    if (!kernel_fp) 
+    {
+      printf("Kernel File not found!\n");
+      return 0;
+    }
+
+    source_str = (char*) malloc(MAX_SOURCE_SIZE);
+    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, kernel_fp);
+    fclose(kernel_fp);
+
+    program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &err);
+
+    err = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+
+    size_t log_size;
+    err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, 
+                                                              NULL, &log_size);
+    char* build_log = (char* )malloc((log_size+1));
+    err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 
+                                                    log_size, build_log, NULL);
+    build_log[log_size] = '\0';
+    printf("\n--- Build log ---\n ");
+    printf("%s\n\n", build_log);
+    free(build_log);
+
+    /* Create OpenCL Kernel */
+    kernel = clCreateKernel(program, "compute_max", &err);
+    /* -----------------------------------------------------------------------*/
 
     if (argc != 21) {
         fprintf(stderr, "Usage: %s M0 H0 T0 TAU A0 A1 NA B0 B1 NB "
@@ -99,14 +162,14 @@ int main(int argc, char *argv[])
     float tau = strtof(argv[4], NULL);
 
     /* A, B, C, D, E */
-    float p0[5], p1[5];
+    float ps[2][5];
     int np[5];
 
     /* p0 is where the search starts, p1 is where the search ends and np is the 
      * number of points in between p0 and p1 to do the search */   
     for (i = 0; i < 5; i++) {
-        p0[i] = atof(argv[5 + 3*i]);
-        p1[i] = atof(argv[5 + 3*i + 1]);
+        ps[0][i] = atof(argv[5 + 3*i]);
+        ps[1][i] = atof(argv[5 + 3*i + 1]);
         np[i] = atoi(argv[5 + 3*i + 2]);
     }
 
@@ -135,14 +198,79 @@ int main(int argc, char *argv[])
     ap.ap_m = 0;
     ap.ap_h = 0;
     ap.ap_t = tau;
-    vector_init(ap.traces);
-    for (int i = 0; i < traces.len; i++)
-        vector_push(ap.traces, &vector_get(traces, i));
+    ap.len = traces.len;
+    su_trace_t traces_s[traces.len];
 
-    /* Find the best parameter combination */
+    for (int i = 0; i < traces.len; i++)
+        traces_s[i] = vector_get(traces, i);
+
+    size_t global_work_size[3] = {np[0], 0, 0};
+    size_t local_work_size[3] = {1, 0, 0};
+
+    cl_mem d_ps  = clCreateBuffer(context,
+                                  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                  sizeof(float)*5*2, ps, &err);
+    checkError(err, "Creating buffer d_ps");
+    cl_mem d_np  = clCreateBuffer(context,
+                                  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                  sizeof(int)*5, np, &err);
+    checkError(err, "Creating buffer d_np");
+    cl_mem d_ap  = clCreateBuffer(context,
+                                  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                  sizeof(aperture_t), &ap, &err);
+    checkError(err, "creating buffer d_ap");
+    cl_mem d_traces_s  = clCreateBuffer(context,
+                                  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                  sizeof(su_trace_t)*ap.len, &traces_s, &err);
+    checkError(err, "creating buffer d_traces");
+
+    cl_mem d_results = clCreateBuffer(context, CL_MEM_READ_WRITE, 
+                               sizeof(float)*7*np[0], NULL, &err);
+    checkError(err, "Creating buffer d_results");
+
+    err  = clSetKernelArg(kernel, 0, sizeof(d_ap), &d_ap);
+    err |= clSetKernelArg(kernel, 1, sizeof(d_traces_s), &d_traces_s);
+    err |= clSetKernelArg(kernel, 2, sizeof(float), &t0);
+    err |= clSetKernelArg(kernel, 3, sizeof(float), &m0);
+    err |= clSetKernelArg(kernel, 4, sizeof(float), &h0);
+    err |= clSetKernelArg(kernel, 5, sizeof(d_ps), &d_ps);
+    err |= clSetKernelArg(kernel, 6, sizeof(d_np), &d_np);
+    err |= clSetKernelArg(kernel, 7, sizeof(d_results), &d_results);
+    checkError(err, "Setting kernel arguments"); 
+
+    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, global_work_size, 
+                                                local_work_size, 0, NULL, NULL);
+    checkError(err, "Enqueue Range Kernel");
+
+    float results[7*np[0]];
+    err = clEnqueueReadBuffer(commands, d_results, CL_TRUE, 0, 
+                              sizeof(float) * 7 * np[0], results, 0, NULL, NULL );
+    checkError(err, "Reading back results");
+
+    clReleaseMemObject(d_ps);
+    clReleaseMemObject(d_np);
+    clReleaseMemObject(d_traces_s);
+    clReleaseMemObject(d_ap);
+    clReleaseProgram(program);
+    clReleaseKernel(kernel);
+    clReleaseCommandQueue(commands);
+    clReleaseContext(context);
 
     float a, b, c, d, e, sem, stack;
-    compute_max(&ap, m0, h0, t0, p0, p1, np, &a, &b, &c, &d, &e, &sem, &stack);
+    float ssmax = -1.0;
+    stack = 0;
+    for (int ia = 0; ia < np[0]; ia++) {
+        if (results[ia*7] > ssmax) {
+            a = results[ia*7+1];
+            b = results[ia*7+2];
+            c = results[ia*7+3];
+            d = results[ia*7+4];
+            e = results[ia*7+5];
+            sem = results[ia*7+6];
+            stack = results[ia*7];
+            ssmax = results[ia*7];
+        }
+    }
 
     printf("A=%g\n", a);
     printf("B=%g\n", b);
@@ -151,7 +279,7 @@ int main(int argc, char *argv[])
     printf("E=%g\n", e);
     printf("Stack=%g\n", stack);
     printf("Semblance=%g\n", sem);
-    printf("\n");
+    printf("\n"); 
 
     return 0;
 }
