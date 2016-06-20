@@ -65,11 +65,6 @@ void su_get_halfoffset(__global su_trace_t *tr, float *hx, float *hy)
 	*hy = s * (tr->gy - tr->sy) * 0.5;
 }
 
-/*
- * This method computes how much the given parameters fit a collection of traces
- * from the aperture. The 'stack' is the average of the values from the traces
- * intersected by the fitted curve
- */
 float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
         __global float *data, float A, float B, float C, float D, float E,
         float t0, float m0, float h0,
@@ -79,12 +74,8 @@ float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
     float dt = (float) tr->dt / 1000000;
     float idt = 1 / dt;
 
-    /* Calculate coherence window (number of trace samples in the trace to
-       include in the semblance) */
     int tau = MAX((int)(ap->ap_t * idt), 0);
     int w = 2 * tau + 1;
-
-    /* Calculate the semblance  */
 
     float num[10];
     float den[10];
@@ -100,16 +91,13 @@ float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
     for (int i = 0; i < ap->len; i++) {
         tr = &traces_s[i];
 
-        /* Get the trace coordinates in the midpoint and halfoffset spaces */
         float mx, my, hx, hy;
         su_get_midpoint(tr, &mx, &my);
         su_get_halfoffset(tr, &hx, &hy);
 
-        /* Compute the moveout time ignoring mx and hx because the data is 2D */
         float t = time_2d(A, B, C, D, E, t0, m0, my, h0, hy);
         int it = (int)(t * idt);
 
-        /* Check if the time belongs to the range of the trace */
         if (it - tau >= 0 && it + tau < tr->ns) {
            for (int j = 0; j < w; j++) {
                 int k = it + j - tau;
@@ -122,10 +110,7 @@ float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
             }
             M++;
         } else if (++skip == 2) {
-            /* Allow only one trace to be excluded from the semblance
-               computation, otherwise the precision of the metric will
-               be compromised */
-            goto error;
+             goto error;
         }
     }
 
@@ -156,29 +141,35 @@ __kernel void compute_max(__global aperture_t *ap, __global su_trace_t *traces_s
                           const float ns[2][5], const int np[5], __global float *results)
 {
   int ia = get_global_id(0);
-  results[ia*7] = -1;
+  int ib = get_global_id(1);
+  int base = ia*(np[1]*7) + (ib*7);
+
+  results[base] = -1;
+
   float a = ns[0][0] + ((float)ia / (float)np[0])*(ns[1][0]-ns[0][0]);
-  for (int ib = 0; ib < np[1]; ib++) {
-      float b = ns[0][1] + ((float)ib / (float)np[1])*(ns[1][1]-ns[0][1]);
-      for (int ic = 0; ic < np[2]; ic++) {
-          float c = ns[0][2] + ((float)ic / (float)np[2])*(ns[1][2]-ns[0][2]);
-          for (int id = 0; id < np[3]; id++) {
-              float d = ns[0][3] + ((float)id / (float)np[3])*(ns[1][3]-ns[0][3]);
-              for (int ie = 0; ie < np[4]; ie++) {
-                  float e = ns[0][4] + ((float)ie / (float)np[4])*(ns[1][4]-ns[0][4]);
-                  float st;
+  float b = ns[0][1] + ((float)ib / (float)np[1])*(ns[1][1]-ns[0][1]);
 
-                  float s = semblance_2d(ap, traces_s, data, a, b, c, d, e, t0, m0, h0, &st);
+  for (int ic = 0; ic < np[2]; ic++) {
 
-                  if (s > results[ia*7]) {
-                      results[ia*7] = s; //smax
-                      results[ia*7 + 1] = st; //stack
-                      results[ia*7 + 2] = a;
-                      results[ia*7 + 3] = b;
-                      results[ia*7 + 4] = c;
-                      results[ia*7 + 5] = d;
-                      results[ia*7 + 6] = e;
-                  }
+      float c = ns[0][2] + ((float)ic / (float)np[2])*(ns[1][2]-ns[0][2]);
+      for (int id = 0; id < np[3]; id++) {
+
+          float d = ns[0][3] + ((float)id / (float)np[3])*(ns[1][3]-ns[0][3]);
+          for (int ie = 0; ie < np[4]; ie++) {
+
+              float e = ns[0][4] + ((float)ie / (float)np[4])*(ns[1][4]-ns[0][4]);
+              float st;
+
+              float s = semblance_2d(ap, traces_s, data, a, b, c, d, e, t0, m0, h0, &st);
+              
+              if (s > results[base]) {
+                  results[base] = s; //smax
+                  results[base + 1] = st; //stack
+                  results[base + 2] = a;
+                  results[base + 3] = b;
+                  results[base + 4] = c;
+                  results[base + 5] = d;
+                  results[base + 6] = e;
               }
           }
       }

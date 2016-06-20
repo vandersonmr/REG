@@ -160,8 +160,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    size_t global_work_size[3] = {np[0], 0, 0};
-    size_t local_work_size[3] = {1, 0, 0};
+    size_t global_work_size[3] = {np[0], np[1], 0};
+    size_t local_work_size[3] = {1, 1, 0};
 
     cl_mem d_ps  = clCreateBuffer(context,
                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -186,10 +186,9 @@ int main(int argc, char *argv[])
 
 
     cl_mem d_results = clCreateBuffer(context, CL_MEM_READ_WRITE, 
-                               sizeof(float)*7*np[0], NULL, &err);
+                               sizeof(float)*7*np[0]*np[1], NULL, &err);
     checkError(err, "Creating buffer d_results");
 
-    printf("teste\n");
     err  = clSetKernelArg(kernel, 0, sizeof(d_ap), &d_ap);
     err |= clSetKernelArg(kernel, 1, sizeof(d_traces_s), &d_traces_s);
     err |= clSetKernelArg(kernel, 2, sizeof(d_data), &d_data);
@@ -201,38 +200,32 @@ int main(int argc, char *argv[])
     err |= clSetKernelArg(kernel, 8, sizeof(d_results), &d_results);
     checkError(err, "Setting kernel arguments"); 
 
-    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, global_work_size, 
+    err = clEnqueueNDRangeKernel(commands, kernel, 2, NULL, global_work_size, 
                                                 local_work_size, 0, NULL, NULL);
     checkError(err, "Enqueue Range Kernel");
 
-    float results[7*np[0]];
+    float results[7*np[0]*np[1]];
     err = clEnqueueReadBuffer(commands, d_results, CL_TRUE, 0, 
-                              sizeof(float) * 7 * np[0], results, 0, NULL, NULL );
+                              sizeof(float) * 7 * np[0] * np[1], results, 0, NULL, NULL );
     checkError(err, "Reading back results");
-
-    clReleaseMemObject(d_ps);
-    clReleaseMemObject(d_np);
-    clReleaseMemObject(d_traces_s);
-    clReleaseMemObject(d_ap);
-    clReleaseProgram(program);
-    clReleaseKernel(kernel);
-    clReleaseCommandQueue(commands);
-    clReleaseContext(context);
 
     float a, b, c, d, e, sem, stack;
     float ssmax = -1.0;
     stack = 0;
     for (int ia = 0; ia < np[0]; ia++) {
-        if (results[ia*7] > ssmax) {
-            a = results[ia*7+2];
-            b = results[ia*7+3];
-            c = results[ia*7+4];
-            d = results[ia*7+5];
-            e = results[ia*7+6];
-            sem = results[ia*7];
-            stack = results[ia*7+1];
-            ssmax = results[ia*7];
+      for (int ib = 0; ib < np[1]; ib++) {
+        int base = ia*(np[1]*7) + (ib*7);
+        if (results[base] > ssmax) {
+            a = results[base+2];
+            b = results[base+3];
+            c = results[base+4];
+            d = results[base+5];
+            e = results[base+6];
+            sem = results[base];
+            stack = results[base+1];
+            ssmax = results[base];
         }
+      }
     }
 
     printf("A=%g\n", a);
@@ -243,6 +236,15 @@ int main(int argc, char *argv[])
     printf("Stack=%g\n", stack);
     printf("Semblance=%g\n", sem);
     printf("\n"); 
+
+    clReleaseMemObject(d_ps);
+    clReleaseMemObject(d_np);
+    clReleaseMemObject(d_traces_s);
+    clReleaseMemObject(d_ap);
+    clReleaseProgram(program);
+    clReleaseKernel(kernel);
+    clReleaseCommandQueue(commands);
+    clReleaseContext(context);
 
     return 0;
 }
