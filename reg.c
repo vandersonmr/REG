@@ -15,62 +15,6 @@
 
 #include "err_code.h"
 
-/*void compute_max(aperture_t *ap, su_trace_t *traces_s, float m0, float h0,
-    float t0, const float n0[5], const float n1[5], const int np[5], float *Aopt,
-    float *Bopt, float *Copt, float *Dopt, float *Eopt, float *sem,
-    float *stack)
-{
-    float _Aopt[np[0]], _Bopt[np[0]], _Copt[np[0]], 
-          _Dopt[np[0]], _Eopt[np[0]];
-    float smax[np[0]];
-    float _stack[np[0]];
-
-    #pragma omp parallel for schedule(dynamic)
-    for (int ia = 0; ia < np[0]; ia++) {
-        smax[ia] = -1;
-        float a = n0[0] + ((float)ia / (float)np[0])*(n1[0]-n0[0]);
-        for (int ib = 0; ib < np[1]; ib++) {
-            float b = n0[1] + ((float)ib / (float)np[1])*(n1[1]-n0[1]);
-            for (int ic = 0; ic < np[2]; ic++) {
-                float c = n0[2] + ((float)ic / (float)np[2])*(n1[2]-n0[2]);
-                for (int id = 0; id < np[3]; id++) {
-                    float d = n0[3] + ((float)id / (float)np[3])*(n1[3]-n0[3]);
-                    for (int ie = 0; ie < np[4]; ie++) {
-                        float e = n0[4] + ((float)ie / (float)np[4])*(n1[4]-n0[4]);
-                        float st;
-
-                        float s = semblance_2d(ap, traces_s, a, b, c, d, e, t0, m0, h0, &st);
-                        if (s > smax[ia]) {
-                            smax[ia] = s;
-                            _stack[ia] = st;
-                            _Aopt[ia] = a;
-                            _Bopt[ia] = b;
-                            _Copt[ia] = c;
-                            _Dopt[ia] = d;
-                            _Eopt[ia] = e;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    float ssmax = -1.0;
-    *stack = 0;
-    for (int ia = 0; ia < np[0]; ia++) {
-        if (smax[ia] > ssmax) {
-            *Aopt = _Aopt[ia];
-            *Bopt = _Bopt[ia];
-            *Copt = _Copt[ia];
-            *Dopt = _Dopt[ia];
-            *Eopt = _Eopt[ia];
-            *stack = _stack[ia];
-            *sem = smax[ia];
-            ssmax = smax[ia];
-        }
-    }
-}*/
-
 #ifndef DEVICE
 #define DEVICE CL_DEVICE_TYPE_DEFAULT
 #endif
@@ -199,10 +143,22 @@ int main(int argc, char *argv[])
     ap.ap_h = 0;
     ap.ap_t = tau;
     ap.len = traces.len;
-    su_trace_t traces_s[traces.len];
+    su_trace_c_t traces_s[traces.len];
+    float *data = (float*) malloc(traces.len*2502*sizeof(float));
 
-    for (int i = 0; i < traces.len; i++)
-        traces_s[i] = vector_get(traces, i);
+    for (int i = 0; i < traces.len; i++) {
+        su_trace_t tmp = vector_get(traces, i);
+        traces_s[i].scalco = tmp.scalco;
+        traces_s[i].sx = tmp.sx;
+        traces_s[i].sy = tmp.sy;
+        traces_s[i].gx = tmp.gx;
+        traces_s[i].gy = tmp.gy;
+        traces_s[i].ns = tmp.ns;
+        traces_s[i].dt = tmp.dt;
+        for (int j = 0; j < 2502; j++) { 
+          data[i*2052 + j] = tmp.data[j];
+        }
+    }
 
     size_t global_work_size[3] = {np[0], 0, 0};
     size_t local_work_size[3] = {1, 0, 0};
@@ -221,21 +177,28 @@ int main(int argc, char *argv[])
     checkError(err, "creating buffer d_ap");
     cl_mem d_traces_s  = clCreateBuffer(context,
                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                  sizeof(su_trace_t)*ap.len, &traces_s, &err);
+                                  sizeof(su_trace_c_t)*ap.len, &traces_s, &err);
     checkError(err, "creating buffer d_traces");
+    cl_mem d_data  = clCreateBuffer(context,
+                                  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                  sizeof(float)*ap.len*2052, data, &err);
+    checkError(err, "creating buffer d_data");
+
 
     cl_mem d_results = clCreateBuffer(context, CL_MEM_READ_WRITE, 
                                sizeof(float)*7*np[0], NULL, &err);
     checkError(err, "Creating buffer d_results");
 
+    printf("teste\n");
     err  = clSetKernelArg(kernel, 0, sizeof(d_ap), &d_ap);
     err |= clSetKernelArg(kernel, 1, sizeof(d_traces_s), &d_traces_s);
-    err |= clSetKernelArg(kernel, 2, sizeof(float), &t0);
-    err |= clSetKernelArg(kernel, 3, sizeof(float), &m0);
-    err |= clSetKernelArg(kernel, 4, sizeof(float), &h0);
-    err |= clSetKernelArg(kernel, 5, sizeof(d_ps), &d_ps);
-    err |= clSetKernelArg(kernel, 6, sizeof(d_np), &d_np);
-    err |= clSetKernelArg(kernel, 7, sizeof(d_results), &d_results);
+    err |= clSetKernelArg(kernel, 2, sizeof(d_data), &d_data);
+    err |= clSetKernelArg(kernel, 3, sizeof(float), &t0);
+    err |= clSetKernelArg(kernel, 4, sizeof(float), &m0);
+    err |= clSetKernelArg(kernel, 5, sizeof(float), &h0);
+    err |= clSetKernelArg(kernel, 6, sizeof(d_ps), &d_ps);
+    err |= clSetKernelArg(kernel, 7, sizeof(d_np), &d_np);
+    err |= clSetKernelArg(kernel, 8, sizeof(d_results), &d_results);
     checkError(err, "Setting kernel arguments"); 
 
     err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, global_work_size, 
@@ -261,13 +224,13 @@ int main(int argc, char *argv[])
     stack = 0;
     for (int ia = 0; ia < np[0]; ia++) {
         if (results[ia*7] > ssmax) {
-            a = results[ia*7+1];
-            b = results[ia*7+2];
-            c = results[ia*7+3];
-            d = results[ia*7+4];
-            e = results[ia*7+5];
-            sem = results[ia*7+6];
-            stack = results[ia*7];
+            a = results[ia*7+2];
+            b = results[ia*7+3];
+            c = results[ia*7+4];
+            d = results[ia*7+5];
+            e = results[ia*7+6];
+            sem = results[ia*7];
+            stack = results[ia*7+1];
             ssmax = results[ia*7];
         }
     }

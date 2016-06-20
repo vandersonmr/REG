@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 project(reg)
 
-add_definitions(-std=gnu99
+add_definitions(-std=gnu99 -O3
     -D_FILE_OFFSET_BITS=64
     -D_LARGEFILE64_SOURCE)
 

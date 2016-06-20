@@ -3,88 +3,13 @@
 typedef struct su_trace su_trace_t;
 
 struct su_trace {
-	short mark;
-  short shortpad;
-	short unass[14];
-	short scalel;
-	short scalco;
-	short counit;
-	short wevel;
-	short swevel;
-	short sut;
-	short gut;
-	short sstat;
-	short gstat;
-	short tstat;
-	short laga;
-	short lagb;
-	short delrt;
-	short muts;
-	short mute;
-	unsigned short ns;
-	unsigned short dt;
-	short gain;
-	short igc;
-	short igi;
-	short corr;
-	short sfs;
-	short sfe;
-	short slen;
-	short styp;
-	short stas;
-	short stae;
-	short tatyp;
-	short afilf;
-	short afils;
-	short nofilf;
-	short nofils;
-	short lcf;
-	short hcf;
-	short lcs;
-	short hcs;
-	short year;
-	short day;
-	short hour;
-	short minute;
-	short sec;
-	short timbas;
-	short trwf;
-	short grnors;
-	short grnofr;
-	short grnlof;
-	short gaps;
-	short otrav;
-	short trid;
-	short nvs;
-	short nhs;
-	short duse;
-	int tracl;
-	int tracr;
-	int fldr;
-	int tracf;
-	int ep;
-	int cdp;
-	int cdpt;
-	int offset;
-	int gelev;
-	int selev;
-	int sdepth;
-	int gdel;
-	int sdel;
-	int swdep;
-	int gwdep;
-	int sx;
-	int sy;
-	int gx;
-	int gy;
-	int ntr;
-  float d1;
-	float f1;
-	float d2;
-	float f2;
-	float ungpow;
-	float unscale;
-	float *data;
+	short scalco; //*
+	int sx; //*
+	int sy; //*
+	int gx; //*
+	int gy; //*
+	unsigned short ns; //*
+	unsigned short dt; //*
 };
 
 typedef struct aperture aperture_t;
@@ -146,7 +71,7 @@ void su_get_halfoffset(__global su_trace_t *tr, float *hx, float *hy)
  * intersected by the fitted curve
  */
 float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
-        float A, float B, float C, float D, float E,
+        __global float *data, float A, float B, float C, float D, float E,
         float t0, float m0, float h0,
         float *stack)
 {
@@ -189,7 +114,7 @@ float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
            for (int j = 0; j < w; j++) {
                 int k = it + j - tau;
                 float v = interpol_linear(k, k+1,
-                        tr->data[k], tr->data[k+1],
+                        data[i*2052 + k], data[i*2052 + k+1],
                         t*idt + j - tau);
                 num[j] += v;
                 den[j] += v*v;
@@ -227,8 +152,8 @@ error:
 
 
 __kernel void compute_max(__global aperture_t *ap, __global su_trace_t *traces_s,
-                          float t0, float m0, float h0, const float ns[2][5],
-                          const int np[5], __global float *results)
+                          __global float *data, float t0, float m0, float h0, 
+                          const float ns[2][5], const int np[5], __global float *results)
 {
   int ia = get_global_id(0);
   results[ia*7] = -1;
@@ -243,7 +168,8 @@ __kernel void compute_max(__global aperture_t *ap, __global su_trace_t *traces_s
                   float e = ns[0][4] + ((float)ie / (float)np[4])*(ns[1][4]-ns[0][4]);
                   float st;
 
-                  float s = semblance_2d(ap, traces_s, a, b, c, d, e, t0, m0, h0, &st);
+                  float s = semblance_2d(ap, traces_s, data, a, b, c, d, e, t0, m0, h0, &st);
+
                   if (s > results[ia*7]) {
                       results[ia*7] = s; //smax
                       results[ia*7 + 1] = st; //stack

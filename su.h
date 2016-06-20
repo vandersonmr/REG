@@ -12,15 +12,34 @@
 #define SU_HEADER_SIZE ((unsigned long)&(((su_trace_t*)0)->data))
 
 typedef struct su_trace su_trace_t;
+typedef struct su_trace_c su_trace_c_t;
 
 struct su_trace {
-	cl_ushort ns;
-	cl_ushort dt;
-	cl_short mark;
-  cl_short shortpad;
-	cl_short unass[14];
+	cl_int tracl;
+	cl_int tracr;
+	cl_int fldr;
+	cl_int tracf;
+	cl_int ep;
+	cl_int cdp;
+	cl_int cdpt;
+	cl_short trid;
+	cl_short nvs;
+	cl_short nhs;
+	cl_short duse;
+	cl_int offset;
+	cl_int gelev;
+	cl_int selev;
+	cl_int sdepth;
+	cl_int gdel;
+	cl_int sdel;
+	cl_int swdep;
+	cl_int gwdep;
 	cl_short scalel;
 	cl_short scalco;
+	cl_int sx;
+	cl_int sy;
+	cl_int gx;
+	cl_int gy;
 	cl_short counit;
 	cl_short wevel;
 	cl_short swevel;
@@ -34,6 +53,8 @@ struct su_trace {
 	cl_short delrt;
 	cl_short muts;
 	cl_short mute;
+	cl_ushort ns;
+	cl_ushort dt;
 	cl_short gain;
 	cl_short igc;
 	cl_short igi;
@@ -65,37 +86,27 @@ struct su_trace {
 	cl_short grnlof;
 	cl_short gaps;
 	cl_short otrav;
-	cl_short trid;
-	cl_short nvs;
-	cl_short nhs;
-	cl_short duse;
-	cl_int tracl;
-	cl_int tracr;
-	cl_int fldr;
-	cl_int tracf;
-	cl_int ep;
-	cl_int cdp;
-	cl_int cdpt;
-	cl_int offset;
-	cl_int gelev;
-	cl_int selev;
-	cl_int sdepth;
-	cl_int gdel;
-	cl_int sdel;
-	cl_int swdep;
-	cl_int gwdep;
-	cl_int sx;
-	cl_int sy;
-	cl_int gx;
-	cl_int gy;
-	cl_int ntr;
   cl_float d1;
 	cl_float f1;
 	cl_float d2;
 	cl_float f2;
 	cl_float ungpow;
 	cl_float unscale;
+	cl_int ntr;
+	cl_short mark;
+  cl_short shortpad;
+	cl_short unass[14];
 	cl_float *data;
+};
+
+struct su_trace_c {
+	cl_short scalco;
+	cl_int sx;
+	cl_int sy;
+	cl_int gx;
+	cl_int gy;
+  cl_ushort ns;
+	cl_ushort dt;
 };
 
 /*
