@@ -21,8 +21,19 @@
 
 #define MAX_SOURCE_SIZE (0x100000)
 
+#include <sys/time.h>
+
+double mysecond() {
+  struct timeval tp;
+  struct timezone tzp;
+  gettimeofday(&tp ,&tzp);
+  return ((double) tp.tv_sec + (double) tp.tv_usec * 1.e-6);
+}
+
 int main(int argc, char *argv[])
 {
+    double start_total = mysecond();
+    double start_init = mysecond();
     int i;
 
     cl_int          err;               // error code returned from OpenCL calls
@@ -135,9 +146,6 @@ int main(int argc, char *argv[])
         vector_push(traces, tr);
     }
 
-    /* Construct the aperture structure from the traces, which is a vector
-     * containing pointers to traces */
-
     aperture_t ap;
     ap.ap_m = 0;
     ap.ap_h = 0;
@@ -200,6 +208,10 @@ int main(int argc, char *argv[])
     err |= clSetKernelArg(kernel, 8, sizeof(d_results), &d_results);
     checkError(err, "Setting kernel arguments"); 
 
+    double end_init = mysecond();
+
+
+    double start_run = mysecond();
     err = clEnqueueNDRangeKernel(commands, kernel, 2, NULL, global_work_size, 
                                                 local_work_size, 0, NULL, NULL);
     checkError(err, "Enqueue Range Kernel");
@@ -208,6 +220,7 @@ int main(int argc, char *argv[])
     err = clEnqueueReadBuffer(commands, d_results, CL_TRUE, 0, 
                               sizeof(float) * 7 * np[0] * np[1], results, 0, NULL, NULL );
     checkError(err, "Reading back results");
+    double end_run = mysecond();
 
     float a, b, c, d, e, sem, stack;
     float ssmax = -1.0;
@@ -236,15 +249,12 @@ int main(int argc, char *argv[])
     printf("Stack=%g\n", stack);
     printf("Semblance=%g\n", sem);
     printf("\n"); 
+    
+    double end_total = mysecond();
 
-    clReleaseMemObject(d_ps);
-    clReleaseMemObject(d_np);
-    clReleaseMemObject(d_traces_s);
-    clReleaseMemObject(d_ap);
-    clReleaseProgram(program);
-    clReleaseKernel(kernel);
-    clReleaseCommandQueue(commands);
-    clReleaseContext(context);
+    printf("Time init: %lf Time run: %lf Total time: %lf\n", 
+            end_init - start_init, end_run - start_run, end_total - start_total);
+    printf("\n");
 
     return 0;
 }

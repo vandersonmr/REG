@@ -18,28 +18,6 @@ struct aperture {
     float ap_m, ap_h, ap_t, len;
 };
 
-/* The moveout time function tells the time when a wave, propagating from
- * (m0,h0) at t0 to the tace */
-static float time_2d(float A, float B, float C, float D, float E,
-        float t0, float m0, float m, float h0, float h)
-{
-    float dm = m - m0;
-    float dh = h - h0;
-
-    float t2 = t0 + (A*dm) + (B*dh);
-    t2 = t2*t2 + C*dh*dh + D*dm*dm + E*dh*dm;
-
-    if (t2 < 0)
-        return -1;
-    else
-        return sqrt(t2);
-}
-
-float interpol_linear(float x0, float x1, float y0, float y1, float x)
-{
-    return (y1 - y0) * (x - x0) / (x1 - x0) + y0;
-}
-
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
 static float get_scalco(__global su_trace_t *tr)
@@ -49,20 +27,6 @@ static float get_scalco(__global su_trace_t *tr)
 	if (tr->scalco > 0)
 		return tr->scalco;
 	return 1.0f / tr->scalco;
-}
-
-void su_get_midpoint(__global su_trace_t *tr, float *mx, float *my)
-{
-	float s = get_scalco(tr);
-	*mx = s * (tr->gx + tr->sx) * 0.5;
-	*my = s * (tr->gy + tr->sy) * 0.5;
-}
-
-void su_get_halfoffset(__global su_trace_t *tr, float *hx, float *hy)
-{
-	float s = get_scalco(tr);
-	*hx = s * (tr->gx - tr->sx) * 0.5;
-	*hy = s * (tr->gy - tr->sy) * 0.5;
 }
 
 float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
@@ -81,8 +45,6 @@ float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
     float den[10];
     for (int i = 0; i < w; i++) {
       num[i] = 0;
-    }
-    for (int i = 0; i < w; i++) {
       den[i] = 0;
     }
     int M = 0, skip = 0;
@@ -92,25 +54,38 @@ float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
         tr = &traces_s[i];
 
         float mx, my, hx, hy;
-        su_get_midpoint(tr, &mx, &my);
-        su_get_halfoffset(tr, &hx, &hy);
+        float tmps = get_scalco(tr);
+	      mx = tmps * (tr->gx + tr->sx) / 2;
+	      my = tmps * (tr->gy + tr->sy) / 2;
 
-        float t = time_2d(A, B, C, D, E, t0, m0, my, h0, hy);
+	      hx = tmps * (tr->gx - tr->sx) / 2;
+	      hy = tmps * (tr->gy - tr->sy) / 2;
+        
+        float t;
+        float dm = my - m0;
+        float dh = hy - h0;
+
+        float t2 = t0 + (A*dm) + (B*dh);
+        t2 = t2*t2 + C*dh*dh + D*dm*dm + E*dh*dm;
+
+        if (t2 < 0) t = -1;
+        else t = sqrt(t2);
+
         int it = (int)(t * idt);
 
         if (it - tau >= 0 && it + tau < tr->ns) {
+           float v2 = (t*idt - it);
            for (int j = 0; j < w; j++) {
                 int k = it + j - tau;
-                float v = interpol_linear(k, k+1,
-                        data[i*2052 + k], data[i*2052 + k+1],
-                        t*idt + j - tau);
+                float v1 = (data[i*2052 + k+1] - data[i*2052 + k]);
+                float v = v1*v2 + data[i*2052 + k];
                 num[j] += v;
                 den[j] += v*v;
                 _stack += v;
             }
             M++;
         } else if (++skip == 2) {
-             goto error;
+            return 0;
         }
     }
 
@@ -130,9 +105,6 @@ float semblance_2d(__global aperture_t *ap, __global su_trace_t *traces_s,
         return 0;
 
     return sem / aux / M;
-
-error:
-    return 0;
 }
 
 
