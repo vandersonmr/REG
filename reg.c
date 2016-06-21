@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
     for (i = 0; i < numPlatforms; i++)
     {
-        err = clGetDeviceIDs(Platform[i], DEVICE, 1, &device_id, NULL);
+        err = clGetDeviceIDs(Platform[i],  CL_DEVICE_TYPE_GPU, 1, &device_id, NULL);
         if (err == CL_SUCCESS)
         {
             break;
@@ -168,8 +168,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    size_t global_work_size[3] = {np[0], np[1], 0};
-    size_t local_work_size[3] = {1, 1, 0};
+	printf("%d\n", np[0]);
+    size_t global_work_size[3] = {np[0], np[1], np[2]};
+    size_t local_work_size[3] = {5, 5, 5};
 
     cl_mem d_ps  = clCreateBuffer(context,
                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -194,7 +195,7 @@ int main(int argc, char *argv[])
 
 
     cl_mem d_results = clCreateBuffer(context, CL_MEM_READ_WRITE, 
-                               sizeof(float)*7*np[0]*np[1], NULL, &err);
+				       sizeof(float)*7*np[0]*np[1]*np[2], NULL, &err);
     checkError(err, "Creating buffer d_results");
 
     err  = clSetKernelArg(kernel, 0, sizeof(d_ap), &d_ap);
@@ -212,13 +213,13 @@ int main(int argc, char *argv[])
 
 
     double start_run = mysecond();
-    err = clEnqueueNDRangeKernel(commands, kernel, 2, NULL, global_work_size, 
+    err = clEnqueueNDRangeKernel(commands, kernel, 3, NULL, global_work_size, 
                                                 local_work_size, 0, NULL, NULL);
     checkError(err, "Enqueue Range Kernel");
 
-    float results[7*np[0]*np[1]];
+    float results[7*np[0]*np[1]*np[2]];
     err = clEnqueueReadBuffer(commands, d_results, CL_TRUE, 0, 
-                              sizeof(float) * 7 * np[0] * np[1], results, 0, NULL, NULL );
+                              sizeof(float) * 7 * np[0] * np[1]*np[2], results, 0, NULL, NULL );
     checkError(err, "Reading back results");
     double end_run = mysecond();
 
@@ -227,7 +228,8 @@ int main(int argc, char *argv[])
     stack = 0;
     for (int ia = 0; ia < np[0]; ia++) {
       for (int ib = 0; ib < np[1]; ib++) {
-        int base = ia*(np[1]*7) + (ib*7);
+      for (int ic = 0; ic < np[2]; ic++) {
+        int base = ic*(np[2]*np[1]*7) + ia*(np[1]*7) + (ib*7);
         if (results[base] > ssmax) {
             a = results[base+2];
             b = results[base+3];
@@ -238,6 +240,7 @@ int main(int argc, char *argv[])
             stack = results[base+1];
             ssmax = results[base];
         }
+	}
       }
     }
 
