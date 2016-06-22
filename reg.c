@@ -151,24 +151,30 @@ int main(int argc, char *argv[])
     ap.ap_h = 0;
     ap.ap_t = tau;
     ap.len = traces.len;
-    su_trace_c_t traces_s[traces.len];
-    float *data = (float*) malloc(traces.len*2502*sizeof(float));
+    float dm[traces.len];
+    float dh[traces.len];
+    float *data = (float*) malloc(traces.len*2052*sizeof(float));
 
+    float idt = 1 / ((float) vector_get(traces, 0).dt / 1000000);
     for (int i = 0; i < traces.len; i++) {
         su_trace_t tmp = vector_get(traces, i);
-        traces_s[i].scalco = tmp.scalco;
-        traces_s[i].sx = tmp.sx;
-        traces_s[i].sy = tmp.sy;
-        traces_s[i].gx = tmp.gx;
-        traces_s[i].gy = tmp.gy;
-        traces_s[i].ns = tmp.ns;
-        traces_s[i].dt = tmp.dt;
-        for (int j = 0; j < 2502; j++) { 
+
+        float mx, my, hx, hy;
+        float tmps = tmp.scalco == 0 ? 1 : (tmp.scalco > 0 ? tmp.scalco : 1.0f / tr.scalco);
+        mx = tmps * (tmp.gx + tmp.sx) / 2;
+        my = tmps * (tmp.gy + tmp.sy) / 2;
+
+        hx = tmps * (tmp.gx - tmp.sx) / 2;
+        hy = tmps * (tmp.gy - tmp.sy) / 2;
+        
+        dm[i] = my - m0;
+        dh[i] = hy - h0;
+
+        for (int j = 0; j < 2052; j++) { 
           data[i*2052 + j] = tmp.data[j];
         }
     }
 
-	printf("%d\n", np[0]);
     size_t global_work_size[3] = {np[0], np[1], np[2]};
     size_t local_work_size[3] = {5, 5, 5};
 
@@ -184,10 +190,15 @@ int main(int argc, char *argv[])
                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                   sizeof(aperture_t), &ap, &err);
     checkError(err, "creating buffer d_ap");
-    cl_mem d_traces_s  = clCreateBuffer(context,
+    cl_mem d_dm  = clCreateBuffer(context,
                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                  sizeof(su_trace_c_t)*ap.len, &traces_s, &err);
+                                  sizeof(float)*ap.len, &dm, &err);
     checkError(err, "creating buffer d_traces");
+    cl_mem d_dh  = clCreateBuffer(context,
+                                  CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                  sizeof(float)*ap.len, &dh, &err);
+    checkError(err, "creating buffer d_traces");
+
     cl_mem d_data  = clCreateBuffer(context,
                                   CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                   sizeof(float)*ap.len*2052, data, &err);
@@ -199,14 +210,16 @@ int main(int argc, char *argv[])
     checkError(err, "Creating buffer d_results");
 
     err  = clSetKernelArg(kernel, 0, sizeof(d_ap), &d_ap);
-    err |= clSetKernelArg(kernel, 1, sizeof(d_traces_s), &d_traces_s);
-    err |= clSetKernelArg(kernel, 2, sizeof(d_data), &d_data);
-    err |= clSetKernelArg(kernel, 3, sizeof(float), &t0);
-    err |= clSetKernelArg(kernel, 4, sizeof(float), &m0);
-    err |= clSetKernelArg(kernel, 5, sizeof(float), &h0);
-    err |= clSetKernelArg(kernel, 6, sizeof(d_ps), &d_ps);
-    err |= clSetKernelArg(kernel, 7, sizeof(d_np), &d_np);
-    err |= clSetKernelArg(kernel, 8, sizeof(d_results), &d_results);
+    err |= clSetKernelArg(kernel, 1, sizeof(d_dm), &d_dm);
+    err |= clSetKernelArg(kernel, 2, sizeof(d_dh), &d_dh);
+    err |= clSetKernelArg(kernel, 3, sizeof(d_data), &d_data);
+    err |= clSetKernelArg(kernel, 4, sizeof(float), &t0);
+    err |= clSetKernelArg(kernel, 5, sizeof(float), &m0);
+    err |= clSetKernelArg(kernel, 6, sizeof(float), &h0);
+    err |= clSetKernelArg(kernel, 7, sizeof(float), &idt);
+    err |= clSetKernelArg(kernel, 8, sizeof(d_ps), &d_ps);
+    err |= clSetKernelArg(kernel, 9, sizeof(d_np), &d_np);
+    err |= clSetKernelArg(kernel, 10, sizeof(d_results), &d_results);
     checkError(err, "Setting kernel arguments"); 
 
     double end_init = mysecond();

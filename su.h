@@ -100,13 +100,7 @@ struct su_trace {
 };
 
 struct su_trace_c {
-	cl_short scalco;
-	cl_int sx;
-	cl_int sy;
-	cl_int gx;
-	cl_int gy;
-  cl_ushort ns;
-	cl_ushort dt;
+  cl_float dm, dh;
 };
 
 /*
