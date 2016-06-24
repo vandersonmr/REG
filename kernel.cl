@@ -15,15 +15,16 @@ float semblance_2d( __constant aperture_t * __restrict ap,  __constant float * _
     int tau = MAX((int)(ap->ap_t * idt), 0);
     int w = 2 * tau + 1;
 
-    float num[5];
+    __local float num[5*5*5*5];
+    int basenum = get_local_id(0)*5 + get_local_id(1)*25 + get_local_id(2)*125;
     float aux = 0;
     for (int i = 0; i < w; i++) {
-      num[i] = 0;
+      num[basenum + i] = 0;
     }
 
     int M = 0, skip = 0;
     float _stack = 0;
-
+ 
     for (int i = 0; i < ap->len; i++) {
         float dm = vdm[i];
         float dh = vdh[i];
@@ -41,7 +42,7 @@ float semblance_2d( __constant aperture_t * __restrict ap,  __constant float * _
            for (int j = 0; j < w; j++) {
                 int k = base + j;
                 float v = data[i*2052 + k+1]*v2 + data[i*2052 + k]*(1-v2);
-                num[j] += v;
+                num[basenum + j] += v;
                 aux += v*v;
                 _stack += v;
             }
@@ -53,7 +54,7 @@ float semblance_2d( __constant aperture_t * __restrict ap,  __constant float * _
 
     float sem = 0;
     for (int j = 0; j < w; j++) {
-        sem += num[j] * num[j];
+        sem += num[basenum + j] * num[basenum + j];
     }
 
     if (stack) {
