@@ -8,18 +8,17 @@ struct aperture {
 
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-float semblance_2d(__global aperture_t *ap, __global float *vdm, __global float *vdh,
-        __global float *data, float A, float B, float C, float D, float E,
+float semblance_2d( __constant aperture_t * __restrict ap,  __constant float * __restrict vdm,  __constant float * __restrict vdh,
+         __global float *__restrict data, float A, float B, float C, float D, float E,
         float t0, float m0, float h0, float idt, float *stack)
 {
     int tau = MAX((int)(ap->ap_t * idt), 0);
     int w = 2 * tau + 1;
 
     float num[5];
-    float den[5];
+    float aux = 0;
     for (int i = 0; i < w; i++) {
       num[i] = 0;
-      den[i] = 0;
     }
 
     int M = 0, skip = 0;
@@ -36,15 +35,14 @@ float semblance_2d(__global aperture_t *ap, __global float *vdm, __global float 
         else t = sqrt(t2);
 
         int it = (int)(t * idt);
-
-        if (it - tau >= 0 && it + tau < 2502) {
+	int base = it - tau;
+        if (base >= 0 && it + tau < 2502) {
            float v2 = (t*idt - it);
-           for (int j = 0; j < 5; j++) {
-                int k = it + j - tau;
-                float v1 = (data[i*2052 + k+1] - data[i*2052 + k]);
-                float v = v1*v2 + data[i*2052 + k];
+           for (int j = 0; j < w; j++) {
+                int k = base + j;
+                float v = data[i*2052 + k+1]*v2 + data[i*2052 + k]*(1-v2);
                 num[j] += v;
-                den[j] += v*v;
+                aux += v*v;
                 _stack += v;
             }
             M++;
@@ -54,15 +52,13 @@ float semblance_2d(__global aperture_t *ap, __global float *vdm, __global float 
     }
 
     float sem = 0;
-    float aux = 0;
     for (int j = 0; j < w; j++) {
         sem += num[j] * num[j];
-        aux += den[j];
     }
 
     if (stack) {
         _stack /= M*w;
-        *stack = _stack;
+	*stack = _stack;
     }
 
     if (aux == 0)
@@ -71,25 +67,29 @@ float semblance_2d(__global aperture_t *ap, __global float *vdm, __global float 
     return sem / aux / M;
 }
 
-__kernel void compute_max(__global aperture_t *ap, __global float *dm, __global float *dh,
-                          __global float *data, float t0, float m0, float h0, float idt,
-                          __global const float ns[2][5],  __global const int np[5], __global float *results)
-{
-  int ia = get_global_id(0);
-  int ib = get_global_id(1);
-  int ic = get_global_id(2);
-  int base = ia*(np[2]*np[1]*7) + ib*(np[1]*7) + (ic*7);
+typedef struct {
+	float a,b,c;
+} index;
 
+__kernel void compute_max(__constant aperture_t * __restrict ap,  __constant float * __restrict dm,  __constant float * __restrict dh,
+                          __global float * __restrict data, float t0, float m0, float h0, float idt,
+                          __constant float ns[2][5], __constant int np[5], __global float * __restrict results)
+{
+  short ia = get_global_id(0);
+  short ib = get_global_id(1);
+  short ic = get_global_id(2);
+  int base = ia*(np[2]*np[1]*7) + ib*(np[1]*7) + (ic*7);
+  
   results[base] = -1;
 
   float a = ns[0][0] + ((float)ia / (float)np[0])*(ns[1][0]-ns[0][0]);
   float b = ns[0][1] + ((float)ib / (float)np[1])*(ns[1][1]-ns[0][1]);
   float c = ns[0][2] + ((float)ic / (float)np[2])*(ns[1][2]-ns[0][2]);
 
-  for (int id = 0; id < np[3]; id++) {
+  for (short id = 0; id < np[3]; id++) {
 
       float d = ns[0][3] + ((float)id / (float)np[3])*(ns[1][3]-ns[0][3]);
-      for (int ie = 0; ie < np[4]; ie++) {
+      for (short ie = 0; ie < np[4]; ie++) {
           float e = ns[0][4] + ((float)ie / (float)np[4])*(ns[1][4]-ns[0][4]);
           float st;
 

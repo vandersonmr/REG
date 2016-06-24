@@ -25,8 +25,7 @@
 
 double mysecond() {
   struct timeval tp;
-  struct timezone tzp;
-  gettimeofday(&tp ,&tzp);
+  gettimeofday(&tp ,NULL);
   return ((double) tp.tv_sec + (double) tp.tv_usec * 1.e-6);
 }
 
@@ -146,6 +145,7 @@ int main(int argc, char *argv[])
         vector_push(traces, tr);
     }
 
+
     aperture_t ap;
     ap.ap_m = 0;
     ap.ap_h = 0;
@@ -156,15 +156,12 @@ int main(int argc, char *argv[])
     float *data = (float*) malloc(traces.len*2052*sizeof(float));
 
     float idt = 1 / ((float) vector_get(traces, 0).dt / 1000000);
-    for (int i = 0; i < traces.len; i++) {
+	    for (int i = 0; i < traces.len; i++) {
         su_trace_t tmp = vector_get(traces, i);
 
         float mx, my, hx, hy;
         float tmps = tmp.scalco == 0 ? 1 : (tmp.scalco > 0 ? tmp.scalco : 1.0f / tr.scalco);
-        mx = tmps * (tmp.gx + tmp.sx) / 2;
         my = tmps * (tmp.gy + tmp.sy) / 2;
-
-        hx = tmps * (tmp.gx - tmp.sx) / 2;
         hy = tmps * (tmp.gy - tmp.sy) / 2;
         
         dm[i] = my - m0;
