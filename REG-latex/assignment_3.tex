@@ -1,0 +1,261 @@
+\documentclass[paper=a4, fontsize=12pt]{scrartcl} % A4 paper and 11pt font size
+
+\usepackage[utf8]{inputenc}
+
+\usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
+\usepackage{fourier} % Use the Adobe Utopia font for the document - comment this line to return to the LaTeX default
+\usepackage[brazilian]{babel} % English language/hyphenation
+\usepackage{amsmath,amsfonts,amsthm} % Math packages
+
+\usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
+
+\usepackage{listings}
+
+\usepackage{sectsty} % Allows customizing section commands
+\allsectionsfont{\centering \normalfont\scshape} % Make all sections centered, the default font and small caps
+
+\usepackage{fancyhdr} % Custom headers and footers
+\pagestyle{fancyplain} % Makes all pages in the document conform to the custom headers and footers
+\fancyhead{} % No page header - if you want one, create it in the same way as the footers below
+\fancyfoot[L]{} % Empty left footer
+\fancyfoot[C]{} % Empty center footer
+\fancyfoot[R]{\thepage} % Page numbering for right footer
+\renewcommand{\headrulewidth}{0pt} % Remove header underlines
+\renewcommand{\footrulewidth}{0pt} % Remove footer underlines
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+\numberwithin{equation}{section} % Number equations within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+
+\usepackage{color}
+ 
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+ 
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+ 
+\lstset{style=mystyle}
+%\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} % Create horizontal rule command with 1 argument of height
+
+\title{	
+\normalfont \normalsize 
+\textsc{Instituto de Computação - UNICAMP} \\ [25pt] % Your university, school and/or department name(s)
+\horrule{0.5pt} \\[0.4cm] % Thin top horizontal rule
+\huge Aceleração de uma Aplicação Científica com OpenCL: Regularização de Dados Sísmicos   \\ % The assignment title
+\horrule{2pt} \\[0.5cm] % Thick bottom horizontal rule
+}
+
+\author{Vanderson M. do Rosario} % Your name
+
+\date{\normalsize\today}
+
+\begin{document}
+
+\maketitle 
+
+\begin{abstract}
+   \lipsum[4]
+\end{abstract}
+
+\section{Introdução}
+
+\lipsum[4] \cite{knuth}
+
+\lipsum[4]
+
+\lipsum[4]
+
+\lipsum[4]
+
+\lipsum[4]
+
+\section{Materiais e Métodos}
+
+Este trabalho apresenta uma sequência de transformações aplicadas sobre um código, inicialmente sequêncial, para que esse obtenha máximo desempenho sobre um processadores \textit{multicore} e uma placa de vídeo por meio do \textit{framework} OpenCL.
+
+Durante o desenvolvimento do trabalho, diversos experimentos foram realizados para medir a eficiência de cada implementação e de cada transformação, tanto para guiá-las quanto para mostrar os impactos das mesmas. Nessa seção, apresentamos a lista dos materias utilizados e as técnicas utilizadas para realização e medição dos experimentos.
+
+\subsection{Materiais}
+
+Todos os experimentos foram realizados sobre uma mesma máquina, um Dell Optiplex 9020, equipado com um processador Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz com quatro unidades de processamento e uma GPU Intel(R) HD Graphics 4600 com 20 unidades de processamento com frequência máxima de 1150 MHz. Ainda, a máquina é equipada com 2 pentes de 4GB DDR3 SDRAM de 1600MHz em multiplos canais.
+
+% Precisa da versão do CENTOS
+Para compilar o código fonte, foi utilizado o GCC versão 4.8.5 e sobre a plataforma CentOS com um \textit{third-party kernel}: 4.4.13\-1.el7.elrepo.x86\_64. Entre os frameworks utilizados, o OpenMP na versão x.x.x e o OpenCL 1.2 com o driver da Intel na versão 16.4.4.47109.
+
+Para todos os experimentos, o código fonte foi compilado com o seguinte comando:
+\begin{lstlisting}[language=bash, caption=Comando para compilar o código fonte dos experimentos.]
+$ gcc -O3 --std=c99 reg.c semblance.c su.c -lm -I. -lOpenCL -fopenmp
+\end{lstlisting}
+
+As variáveis de ambiente do sistema ....
+
+\subsection{Experimentos  e Código Fonte}
+
+Falar como os experimentos foram feitos e calculados. Falar como o tempo foi medido, sobre o perf e sobre o código para pegar o tempo e como dividimos o tempo em inicialização e execução.
+
+Falar como conseguir o código fonte e como eles são apresentados durante o artigo.
+
+\section{Desenvolvimento e Resultados}
+
+Falar sobre as otimizações aplicadas sobre o código sequêncial, sobre o OpenMP e como o objetivo é usar OpenCL para paralelizar o código para arquiteturas heterogênias e testar o desempenho em CPU e GPU.
+
+\subsection{Código Sequêncial}
+
+Explicar a divisão do código em 3: inicialização, kernel e finalização.
+
+Falar sobre o impacto de cada etapa e quais os trexos mais quentes.
+
+Mostrar o impacto das otimizações do compilador, O0, O1 e O2 no código.
+
+\subsection{Paralelização com OpenMP}
+
+Mostrar como foi implementado a paralelização com OpenMP.
+
+Falar que o OpenMP só garante paralelização para CPUs e como o objetivo do trabalho não era OpenMP as otimizações não foram aplicadas nele.
+
+Mostrar o impacto das otimizações O0, O1 e O2 no código com OpenMP.
+
+Falar que o compilador não conseguiu vetorizar o código.
+
+\subsection{Paralelização com OpenCL}
+
+Falar sobre o OpenCL e como ele funciona.
+
+Falar sobre o que foi necessário para transformar o código do OpenMP para rodar com OpenCL.
+
+Falar sobre CPU bond e Memory Bond e como podemos contornar esses problemas com OpenCL. Falar sobre como fazer vetorização com OpenCL e como a hierarquia de memória funciona. Falar dos manuais.
+
+Instroduzir as otimizações que seram aplicadas.
+
+\subsubsection{Multidimensões}
+
+Falar que diretamente, a GPU ainda não funcionava. 
+
+Falar que ao adicionar mais dimensões houve melhoria no desempenho da CPU e a GPU começou a funcionar. 
+
+Mostrar resultados de desempenho para 2D e 3D.
+
+\subsubsection{Removendo Dados Desnecessários}
+
+Mostrar que no código original grande parte dos dados não estava sendo utilizado. Mostrar como tirar esses dados e como isso manteve a corretude.
+
+Mostrar impacto no desempenho.
+
+\subsubsection{\textit{Inlining} das Funções}
+
+Falar sobre o fato que mesmo os manuais dizendo que o inlining é feito SEMPRE. Vários relatam a mudança de desempenho com inlining manual.
+
+Argumentar que o inlining manual pode criar oportunidade de otimizações manuais que o compilador talvez não consiga fazer.
+
+Mostrar impacto no desempenho.
+
+\subsubsection{Melhor\textit{ Local Work Size}}
+
+Comentar sobre a escolha dos work-local-size.
+
+Falar sobre manual do hardware e clinfo.
+
+Mostrar os melhores valores encontrados.
+
+\subsubsection{Simplificações Algébricas}
+
+Mostrar que os inlinings no kernel permitiram a aplicação de várias simplificações algébricas.
+
+Argumentar que o compilador pode não estar fazendo as simplificações porque os dados são floats, comentar sobre as otimizações (https://www.khronos.org/registry/cl/sdk/1.0/docs/man/xhtml/clBuildProgram.html).
+
+Mostar o impacto no desempenho CPU e GPU.
+
+\subsubsection{\textit{Loop Invariant Code Motion}}
+
+Mostrar como alguns trexos do código são independentes das variáveis de indução e por isso podem ser movidos para fora do loop e até mesmo para fora do kernel.
+
+Mostrar o impacto no desempenho do código.
+
+\subsubsection{\textit{Constant Memory Space}}
+
+Explicar sobre a constant memory space nas GPUs, falar sobre o tamanho dessa memória na GPU da Intel.
+
+Falar quais dados foram escolhidos para ir memória constant.
+
+Mostrar o impacto no desempenho.
+
+\subsubsection{Reduzindo a Pressão Sobre os Registradores }
+
+Falar sobre a hipótese fato que o desempenho do kernel estava sendo limitado por memory bound.
+
+Mas, tirar os acessos diretos a memória não estavam surtindo efeito e eram sequências.
+
+Falar que havia a desconfiança que estava ocorrendo register spill.
+
+Mostrar como os dados foram levados a memória local.
+
+Mostrar o impacto no desempenho.
+
+\subsection{Otimizações Não Implementadas ou Não Mantidas}
+
+Falar sobre o fato que algumas otimizações não foram aplicadas.
+
+\subsubsection{Vetorização}
+
+Falar sobre vetorização no OpenCL e como tentamos aplicar, mas que não houve nenhum benefício.
+
+\subsubsection{Redução}
+
+Falar sobre a posibilidade de fazer alguma espécie de redução, mas que não conseguimos encontrar espaço para essa otimização.
+
+\subsubsection{\textit{Loop Blocking}}
+
+Argumentar que o código não é memory bound e que blocking não seria eficiente.
+
+\section{Problemas Encontrados}
+
+Falar sobre manter corretude sem a alocação;
+
+Falar que não foi escolhido adicionar diversos defines.
+
+Argumentar que muitas das otimizações podem ter diminuido a corretude do código para outras entradas.
+
+\section{Trabalhos Futuros}
+
+Falar sobre analisar o código sobre uma ferramenta sofisticada e investigar se estamos próximos do limite teórico do hardware.
+
+Falar sobre aplicar essas otimizações sobre o OpenMP e medir o desempenho.
+
+Falar sobre as posiveis otimizações que ainda podem ser aplicadas.
+
+\section{Conclusão}
+
+Tentar analisar o desempenho teórico do hardware. Tentar argumentar o desempenho alcançado.
+
+Falar sobre o OpenCL e as otimizações encontradas. Falar sobre os problemas e os trabalhos futuros.
+
+\bibliographystyle{abbrv}
+\bibliography{ref}
+
+\end{document}
