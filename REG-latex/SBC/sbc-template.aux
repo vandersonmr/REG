@@ -14,6 +14,7 @@
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {2}Comando para mensurar as m\IeC {\'e}tricas de execu\IeC {\c c}\IeC {\~a}o.}{2}}
 \newlabel{functime}{{3}{3}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {3}Fun\IeC {\c c}\IeC {\~a}o utilizada para calcular o tempo de execu\IeC {\c c}\IeC {\~a}o de trexos de c\IeC {\'o}digo}{3}}
+\newlabel{desenvolvimento}{{2.2}{3}}
 \newlabel{comandogit}{{4}{3}}
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {4}Comando para navegar pelas transforma\IeC {\c c}\IeC {\~o}es apresentadas no artigo.}{3}}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Desenvolvimento e Resultados}{3}}
@@ -42,24 +43,53 @@
 \newlabel{fgomp}{{2}{8}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Paraleliza\IeC {\c c}\IeC {\~a}o com OpenCL}{8}}
 \newlabel{ocl}{{3.3}{8}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.1}Multidimens\IeC {\~o}es}{9}}
-\newlabel{multi}{{3.3.1}{9}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.2}Removendo Dados Desnecess\IeC {\'a}rios}{9}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.3}\textit  {Inlining} das Fun\IeC {\c c}\IeC {\~o}es}{9}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.4}Melhor\textit  { Local Work Size}}{9}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.5}Simplifica\IeC {\c c}\IeC {\~o}es Alg\IeC {\'e}bricas}{9}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.6}\textit  {Loop Invariant Code Motion}}{9}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.7}\textit  {Constant Memory Space}}{10}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.8}Reduzindo a Press\IeC {\~a}o Sobre os Registradores }{10}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Otimiza\IeC {\c c}\IeC {\~o}es N\IeC {\~a}o Implementadas ou N\IeC {\~a}o Mantidas}{10}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.1}Vetoriza\IeC {\c c}\IeC {\~a}o}{10}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.2}Redu\IeC {\c c}\IeC {\~a}o}{10}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.3}\textit  {Loop Blocking}}{10}}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Problemas Encontrados}{10}}
-\bibstyle{sbc}
-\bibdata{sbc-template}
-\bibcite{boulic:91}{Boulic and Renault 1991}
-\bibcite{knuth:84}{Knuth 1984}
-\bibcite{smith:99}{Smith and Jones 1999}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Trabalhos Futuros}{11}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Conclus\IeC {\~a}o}{11}}
+\newlabel{vars}{{12}{9}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {12}Declara\IeC {\c c}\IeC {\~a}o das vari\IeC {\'a}veis OpenCL.}{9}}
+\newlabel{plat}{{13}{9}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {13}Selecionando a plataforma e o dispositivo OpenCL.}{9}}
+\newlabel{context}{{14}{9}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {14}Cria\IeC {\c c}\IeC {\~a}o do contexto\, da fila de comandos e leitura do kernel.cl.}{9}}
+\newlabel{compiling}{{15}{10}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {15}Compilando o kernel.cl.}{10}}
+\newlabel{initing}{{16}{10}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {16}Copiando dados para o dispositivo e colocando \textit  {kernel} na fila de execu\IeC {\c c}\IeC {\~a}o.}{10}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo com OpenMP e OpenCL sobre a CPU.}}{12}}
+\newlabel{fgcl}{{3}{12}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.1}Removendo Dados Desnecess\IeC {\'a}rios}{12}}
+\newlabel{cstruct}{{17}{12}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {17}Estrutura su\_trace depois de compactada.}{12}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo sem e com a remo\IeC {\c c}\IeC {\~a}o das vari\IeC {\'a}veis n\IeC {\~a}o utilizadas.}}{13}}
+\newlabel{fgcstruct}{{4}{13}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.2}Multidimens\IeC {\~o}es}{13}}
+\newlabel{multi}{{3.3.2}{13}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo com OpenCL sobre a CPU e GPU sobre multiplas dimens\IeC {\~o}es.}}{14}}
+\newlabel{fgcl3d}{{5}{14}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.3}\textit  {Inlining} das Fun\IeC {\c c}\IeC {\~o}es}{14}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo com OpenCL sobre a CPU e GPU antes e depois do \textit  {inlining}.}}{15}}
+\newlabel{fgcinline}{{6}{15}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.4}Simplifica\IeC {\c c}\IeC {\~o}es Alg\IeC {\'e}bricas}{15}}
+\newlabel{interpol}{{18}{15}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {18}Trexo de chamada da fun\IeC {\c c}\IeC {\~a}o interpol\_linear antes do \textit  {inlining}.}{15}}
+\newlabel{alg}{{19}{16}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {19}Estrutura su\_trace depois de compactada.}{16}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo com OpenCL com \textit  {inlining} sobre a CPU e GPU antes e depois das simplifica\IeC {\c c}\IeC {\~o}es.}}{17}}
+\newlabel{fgclsimpl}{{7}{17}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.5}\textit  {Constant Memory Space}}{17}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo com OpenCL com \textit  {inlining} sobre a GPU antes e depois de mover os dados para mem\IeC {\'o}ria de constantes.}}{18}}
+\newlabel{fgclconst}{{8}{18}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.3.6}Reduzindo a Press\IeC {\~a}o Sobre os Registradores }{18}}
+\newlabel{spill}{{20}{18}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {20}C\IeC {\'o}digo n\IeC {\~a}o otimizado e com muitos \textit  {register spill}.}{18}}
+\newlabel{spill2}{{21}{19}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {21}C\IeC {\'o}digo depois da otimiza\IeC {\c c}\IeC {\~a}o sobre a mem\IeC {\'o}ria privda.}{19}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo com OpenCL com \textit  {inlining} sobre a GPU antes e depois de mover os dados para mem\IeC {\'o}ria de constantes.}}{20}}
+\newlabel{fgclpressure}{{9}{20}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Otimiza\IeC {\c c}\IeC {\~o}es N\IeC {\~a}o Implementadas ou N\IeC {\~a}o Mantidas}{20}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.1}Vetoriza\IeC {\c c}\IeC {\~a}o}{20}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.2}\textit  {Loop Blocking}}{20}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Trabalhos Futuros}{20}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclus\IeC {\~a}o}{21}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Tempos de execu\IeC {\c c}\IeC {\~a}o do c\IeC {\'o}digo com OpenCL com \textit  {inlining} sobre a GPU antes e depois de mover os dados para mem\IeC {\'o}ria de constantes.}}{21}}
+\newlabel{fgclpressure}{{10}{21}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Taxa de utiliza\IeC {\c c}\IeC {\~a}o da GPU durante a execu\IeC {\c c}\IeC {\~a}o dos experimentos segundo o intel\_gpu\_top.}}{21}}
+\newlabel{fss}{{11}{21}}

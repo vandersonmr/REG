@@ -115,12 +115,12 @@ double mysecond() {
 }
 \end{lstlisting}
 
-O código fonte apresentado e citado no trabalho pode ser obtido por meio do repositório git hospedado no github.com (\url{https://github.com/vandersonmr/REG}). Todas as etapas apresentadas na Seção \ref{desenvolvimento} podem ser vistas pelo histório de \textit{commits} do repositório. Por exemplo, o código com as transformações citadas na Subseção \ref{multi} pode ser obtido com o comando git do Quadro \ref{comandogit}. \\
+O código fonte apresentado e citado no trabalho pode ser obtido por meio do repositório git hospedado no github.com (\url{https://github.com/vandersonmr/REG}). Todas as etapas apresentadas na Seção \ref{desenvolvimento} podem ser vistas pelo histório de \textit{commits} do repositório. Por exemplo, o código com as transformações citadas na Seção \label{desenvolvimento} pode ser obtido com os comandos git do Quadro \ref{comandogit}. \\
 
 \begin{lstlisting}[language=bash, caption=Comando para navegar pelas transformações apresentadas no artigo., label=comandogit]
+$ git clone https://github.com/vandersonmr/REG
 $ git log --oneline
-%TODO
-$ git reset --hard %TODO
+$ git reset --hard HashAqui
 \end{lstlisting}
 
 \section{Desenvolvimento e Resultados} \label{desenvolvimento}
@@ -270,8 +270,7 @@ A função \textit{semblance\_2d} possui dois acessos a dados na memória, o pri
 
 \end{itemize}
 
-Testamos o desempenho do código sequêncial com as otimização O0, O2 e O3 com vetorização, apesar do compilador (gcc-4.8.5) não ter conseguido vetorizar o código. O resultado do desempenho médio para cada sequência de otimização pode ser visto no gráfico da Fígura \ref{fgsequencial}.
-
+Testamos o desempenho do código sequêncial com as otimização O0, O2 e O3 com vetorização, apesar do compilador (gcc-4.8.5) não ter conseguido vetorizar o código. O resultado do desempenho médio para cada sequência de otimização pode ser visto no gráfico da Fígura \ref{fgsequencial}. O melhor desempenho foi obtido com as otimizações O3, sendo 7.66 segundos para Param1; 31.59 segundos para Param2 e 31.62 segundos para o Param3.
 
 \begin{figure}[H]
 \centering
@@ -308,7 +307,9 @@ Além de adicionar o \textit{pragma}, como agora cada \textit{thread} calcula um
     }
 \end{lstlisting}
 
-Foram executados os mesmos experimentos da Seção \ref{seq}, mas agora com o código paralelizado para CPU. Obteve-se um \textit{speedup} médio de X como podemos ver na Figura \ref{fgomp}.
+Em seguida, notou-se que não havia a necessidade de utilizar a estrutura \textit{vector}, implementada no vector.h, no \textit{kernel}, porque, depois de lido o arquivo de entrada já se sabe a quantidade de traces. Portanto, foram feitas pequenas modificações no código para remover o uso do \textit{vector}. 
+
+A Figura \ref{fgomp} mostra o resultado do tempo de execução da versão sequêncial (já apresentada) compilada com O3, da implementação com OpenMP e com o OpenMP sem o \textit{vector}. Como podemos ver pela figura, não se obteve melhorias no desempenho por não usar o \textit{vector}. Mas, a aplicação do OpenMP gerou um \textit{speedup} médio de $3.37x$, ou seja, para um processador com 4 unidades de processamento: 84\% de eficiência. Os desempenhos médios da implementação com OpenMP foram: 2.91 segundos para Param1; 8.43 segundos para Param2 e 8.44 segundos para Param3.
 
 \begin{figure}[H]
 \centering
@@ -323,77 +324,339 @@ A partir da próxima subseção, todos os resultados mostrados serão de experim
 
 \subsection{Paralelização com OpenCL} \label{ocl}
 
-Falar sobre o OpenCL e como ele funciona.
+O OpenCL é um \textit{framework} para o desenvolvimento de programas que rodem em plataformas heterogênias consistindo de CPUs, GPUs, DSPs, FPGAs e outros processadores e aceleradores. O OpenCL especifica uma linguagem de programação baseada no C99 para programar esses dispositivos, provendo uma interface padrão para programação paralela \textit{task-based} e \textit{data-based}.
 
-Falar sobre o que foi necessário para transformar o código do OpenMP para rodar com OpenCL.
+O primeiro objetivo desse trabalho é fazer com que a mesma forma de paralelização implementada em OpenMP seja portada para OpenCL para que possamos medir o desempenho na GPU e na CPU. 
 
-Falar sobre CPU bond e Memory Bond e como podemos contornar esses problemas com OpenCL. Falar sobre como fazer vetorização com OpenCL e como a hierarquia de memória funciona. Falar dos manuais.
+Primeiro, foi necessário mover o código do \textit{kernel} e suas dependências nos arquivos semblance.h/c, su.h e reg.c para dentro de um único arquivo kernel.cl. Apesar de ser possível adicionar includes no kernel.cl, o código depois de incluido em único arquivo ficou pequeno o suficiente para não precisar ser separado.
 
-Instroduzir as otimizações que seram aplicadas.
+Em seguida, foi preciso modificar a parte de inicialização para iniciar e configurar o OpenCL. Primeiro, declaramos as variáveis necessárias do \textit{framework} OpenCL, como podemos ver no quadro \ref{vars}.\\
 
-\subsubsection{Multidimensões} \label{multi}
+\begin{lstlisting}[language=c, caption=Declaração das variáveis OpenCL., label=vars]
+    cl_int          err;         //error code returned from calls
+    size_t global;              //global domain size
 
-Falar que diretamente, a GPU ainda não funcionava. 
+    cl_device_id     device_id; //compute device id
+    cl_context       context;   //compute context
+    cl_command_queue commands;  //compute command queue
+    cl_program       program;   //compute program
+    cl_kernel        kernel;    //compute kernel
+\end{lstlisting}
 
-Falar que ao adicionar mais dimensões houve melhoria no desempenho da CPU e a GPU começou a funcionar. 
+Durante a inicialização, também é necessário escolher qual dispositivo e qual plataforma será utilizado. O código do Quadro \ref{plat} seleciona a primeira GPU que for encontrada na primeira plataforma.\\
 
-Mostrar resultados de desempenho para 2D e 3D.
+\begin{lstlisting}[language=c, caption=Selecionando a plataforma e o dispositivo OpenCL., label=plat]
+    cl_uint numPlatforms;
+
+    err = clGetPlatformIDs(0, NULL, &numPlatforms);
+    if (numPlatforms == 0)
+    {
+        printf("Found 0 platforms!\n");
+        return EXIT_FAILURE;
+    }
+
+    cl_platform_id Platform[numPlatforms];
+    err = clGetPlatformIDs(numPlatforms, Platform, NULL);
+
+    for (i = 0; i < numPlatforms; i++)
+    {
+        err = clGetDeviceIDs(Platform[i],  CL_DEVICE_TYPE_GPU, 1, &device_id, NULL);
+        if (err == CL_SUCCESS)
+        {
+            break;
+        }
+    }
+\end{lstlisting}
+
+Assim que se tem uma plataforma e dispositivo definidos, cria-se um contexto e uma fila de execução para esse dispositivo. Nessa fila serão inseridos os kernels á serem executados. O código do Quadro \ref{context} mostra a criação do contexto, da fila e em seguida a leitura do arquivo "./kernel.cl".\\
+
+\begin{lstlisting}[language=c, caption=Criação do contexto\, da fila de comandos e leitura do kernel.cl., label=context]
+    context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
+
+    commands = clCreateCommandQueue(context, device_id, 0, &err);
+
+    FILE *kernel_fp;
+    const char file_name[] = "./kernel.cl";
+    kernel_fp = fopen(file_name, "r");
+    size_t source_size;
+    char *source_str;
+
+    source_str = (char*) malloc(MAX_SOURCE_SIZE);
+    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, kernel_fp);
+    fclose(kernel_fp);
+\end{lstlisting}
+
+A próxima etapa é compilar o código do kernel.cl. O trexo de código no Quadro \ref{compiling} mostra como compilar o código lido e como imprimir os logs gerados durante a compilação.\\
+
+\begin{lstlisting}[language=c, caption=Compilando o kernel.cl., label=compiling]
+    program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &err);
+
+    err = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+
+    size_t log_size;
+    err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, 
+                                                              NULL, &log_size);
+    char* build_log = (char* )malloc((log_size+1));
+    err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 
+                                                    log_size, build_log, NULL);
+    build_log[log_size] = '\0';
+    printf("\n--- Build log ---\n ");
+    printf("%s\n\n", build_log);
+    free(build_log);
+
+    kernel = clCreateKernel(program, "compute_max", &err);
+\end{lstlisting}
+
+Por último é necessário copiar os dados que serão utilizados pelo \textit{kernel} para o dispositivo e adicionar o \textit{kernel} na fila de execução. Ainda, é preciso selecionar a dimensão do \textit{work size} e os tamanhos globais (espaço de iteração) e os tamanhos locais (tamanho dos \textit{work groups}). Essas etapas são feitas no código do Quadro \ref{initing}.\\ 
+
+\begin{lstlisting}[language=c, caption=Copiando dados para o dispositivo e colocando \textit{kernel} na fila de execução., label=initing]
+    cl_mem d_ps  = clCreateBuffer(context,
+                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                           sizeof(float)*5*2, ps, &err);
+    checkError(err, "Creating buffer d_ps");
+	...
+    cl_mem d_data  = clCreateBuffer(context,
+                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                           sizeof(float)*ap.len*2052, data, &err);
+    checkError(err, "creating buffer d_data");
+
+
+    cl_mem d_results = clCreateBuffer(context, CL_MEM_READ_WRITE, 
+				       sizeof(float)*7*np[0]*np[1]*np[2], NULL, &err);
+    checkError(err, "Creating buffer d_results");
+
+    err  = clSetKernelArg(kernel, 0, sizeof(d_ap), &d_ap);
+    err |= clSetKernelArg(kernel, 1, sizeof(d_dm), &d_dm);
+	...
+    checkError(err, "Setting kernel arguments"); 
+    
+    size_t global_work_size[3] = {np[0], np[1], np[2]};
+    size_t local_work_size[3] = {4, 4, 4};
+
+    err = clEnqueueNDRangeKernel(commands, kernel, 3, NULL, global_work_size, 
+                                                local_work_size, 0, NULL, NULL);
+\end{lstlisting}
+
+A inicialização com OpenCL tem um \textit{overhead} muito maior do que a do OpenMP. Os trexos de códigos descritos levam em torno de 100x mais tempo do que a inicialização do OpenMP. Por exemplo, nos últimos resultados com OpenCL, a inicialização chega, nos piores casos, a representar 42\% do tempo de execução.
+
+Para uma primeira implementação, escolhemos 1 dimensão para o espaço de iteração, sendo que o espaço de iteração dessa dimensão é o primeiro laço como na implementação do OpenMP. Dessa forma, substituimos o laço do \textit{kernel} por um get\_global\_id(0). Assim, temos uma versão paralela com OpenCL que segue o mesmo princípio de paralelização que a implementação do OpenMP. As principais diferenças são: (1) o compilador do \textit{kernel} agora será o \textit{driver} da Intel; (2) o escalonador não mais será o do OpenMP, mas sim do \textit{Driver} da Intel; e (3), agora é preciso falar cópia de dados do \textit{host} para o dispositivo. 
+
+A comparação do tempo de execução das duas implementações, OpenMP e OpenCL, pode ser visto no gráfico da Fígura \ref{fgcl}. Pode-se notar que o tempo de execução foi bastante próximo para as duas implementações, contudo o OpenCL obteve resultados piores do que o do OpenMP - provavelmente por causa do \textit{overhead} de inicialização, compilação e cópia dos dados.
+
+Os resultados da Fígura \ref{fgcl} são na CPU, sendo que a implementação com OpenCL levou 3.35 segundos para o Param1, 9.078 para Param2 e 10.50 para o Param3. Não foi possível rodar o código na GPU, porque este tinha um desempenho deplorável e a execução foi abortada antes da finalização. Portanto, pode-se concluir que essa implementação da paralelização de apenas o primeiro laço não é uma boa solução para a GPU. 
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{ocl.pdf}
+\caption{Tempos de execução do código com OpenMP e OpenCL sobre a CPU.}
+\label{fgcl}
+\end{figure}
+
+Também foi possível notar, pelas estatísticas do Perf, que a quantidade de \textit{cache misses}, \textit{migrations} e \textit{branch-misses} para ambas as implementações se manteve estável.
 
 \subsubsection{Removendo Dados Desnecessários}
 
-Mostrar que no código original grande parte dos dados não estava sendo utilizado. Mostrar como tirar esses dados e como isso manteve a corretude.
+A primeira transformação aplicada, foi retirar diversos dados que não estavam sendo utilizados pelo \textit{kernel}. No entanto, é importante manter duas estruturas, uma reduzia e outra original. Isso se da pelo fato que na leitura do arquivo de entrada, é feito um mapeamento dos blocos no arquivo a estrutura, ou seja, mudar a estrutura afetaria a leitura do arquivo. No entanto, uma vez lido, não há mais porque guardar esses dados ou transferi-los para os dispositivos OpenCL. No código do Quadro \ref{cstruct} podemos ver a estrutura depois de retirado as variáveis não utilizadas (su\_trace\_c). \\
 
-Mostrar impacto no desempenho.
+\begin{lstlisting}[language=c, caption=Estrutura su\_trace depois de compactada., label=cstruct]
+typedef struct su_trace_c su_trace_c_t;
+
+struct su_trace_c {
+	cl_short scalco; 
+	cl_int sx; 
+	cl_int sy; 
+	cl_int gx; 
+	cl_int gy; 
+	cl_ushort ns; 
+	cl_ushort dt; 
+};
+\end{lstlisting}
+
+
+Esperava-se que essa redução tivesse um impacto significante no desempenho. Contudo, a diferença de desempenho não foi significante, 3.35 segundos para Param1, 8.94 para Param2 e 9.04 para Param3; como podemos ver no gráfigo da Fígura \ref{fgcstruct}. 
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{oclcstruct.pdf}
+\caption{Tempos de execução do código sem e com a remoção das variáveis não utilizadas.}
+\label{fgcstruct}
+\end{figure}
+	
+
+\subsubsection{Multidimensões} \label{multi} 
+
+A segunda transformação aplicada com objetivo de melhorar o desempenho da implementação do código em OpenCL foi a de paralelizar não só o primeiro laço, mas os três primeiros. Dessa forma, temos um \textit{global work space} de 3 dimensões, onde cada dimensão tem o tamanho do tamnanhos das iterações dos laços.
+
+Já o \textit{local work size} foi escolhido por meio das informações contidas no clinfo. Nele, é recomendado tamanhos para os \textit{work groups}. Testando diferentes valores multiplos dos valores recomendados pelo clinfo, chegamos nos \textit{local work size} de (4,4,4) para GPU e (2,2,2) para a CPU.
+
+Com o aumento da quantidade de \textit{work itens} ocorre um aumento, também, de desempenho, já que possibilita que o escalonador mantenha uma maior utilização do \textit{hardware}. Não só obtivemos melhorias no desempenho com a CPU como também obtivemos, com 3 dimensões, o primeiro resultado aceitável com a GPU. Para mostrar esse efeito, testamos o desempenho com 2 laços paralelizados (2D) e com 3 laços paralelizados (3D). Os resultados podem ser visto no gráfico da Figura \ref{fgcl3d}. Sendo que o tempo de execução para a GPU foi de 1.02 segundos para Param1, 2.82 segundos para Param2 e 2.75 segundos para Param3. 
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{ocl3d.pdf}
+\caption{Tempos de execução do código com OpenCL sobre a CPU e GPU sobre multiplas dimensões.}
+\label{fgcl3d}
+\end{figure}
 
 \subsubsection{\textit{Inlining} das Funções}
 
-Falar sobre o fato que mesmo os manuais dizendo que o inlining é feito SEMPRE. Vários relatam a mudança de desempenho com inlining manual.
+Apesar do manual da NVIDIA sobre OpenCL afirmar que o padrão do OpenCL é aplicar \textit{inlining} em todas as funções, existem diversos relatos em foruns especializados de relatos que o inlining manual trás melhorias no desempenho. Além disso, o \textit{inlining} manual permite que possam ser aplicados simplificações algébricas também manuais que o compilador pode não ser capaz de fazer. 
 
-Argumentar que o inlining manual pode criar oportunidade de otimizações manuais que o compilador talvez não consiga fazer.
+Após o \textit{inlining} manual de todas as funções chamadas pelo \textit{kernel}, obtivemos uma melhoria no desempenho que pode ser visto no gráfico da Figura \ref{fgcinline}. Sendo que o tempo de execução para a CPU foi de 1.48 segundos para Param1, 5.43 segundos para Param2 e 5.48 para Param3; e para a GPU foi de 0.75 segundos para Param1, 1.45 segundos para Param2 e 1.51 segundos para Param3.
 
-Mostrar impacto no desempenho.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{oclinline.pdf}
+\caption{Tempos de execução do código com OpenCL sobre a CPU e GPU antes e depois do \textit{inlining}.}
+\label{fgcinline}
+\end{figure}
 
-\subsubsection{Melhor\textit{ Local Work Size}}
-
-Comentar sobre a escolha dos work-local-size.
-
-Falar sobre manual do hardware e clinfo.
-
-Mostrar os melhores valores encontrados.
 
 \subsubsection{Simplificações Algébricas}
 
-Mostrar que os inlinings no kernel permitiram a aplicação de várias simplificações algébricas.
+Após a aplicação do \textit{inlining} foi possível perceber diversas possibilidades de simplificação algébricas. Contudo, antes de aplicar as simplificações manualmente, testamos se ativar as simplificações que resultem em perda de precisão (-cl-mad-enable, -cl-unsafe-math-optimizations, -cl-fast-relaxed-math) iria resultar em melhoria do desempenho. Contudo, não ocorreu nenhuma melhoria de desempenho.
 
-Argumentar que o compilador pode não estar fazendo as simplificações porque os dados são floats, comentar sobre as otimizações (https://www.khronos.org/registry/cl/sdk/1.0/docs/man/xhtml/clBuildProgram.html).
+Portanto, resolvemos aplicar as transformações manualmente. Entretante, é importante lembrar que nesse momento, apesar de que nos resultados para as entradas testadas não houve mudança dos resultados, não podemos afirmar a corretude do programa. Dessa forma, assumimos que estamos fazendo um \textit{trade off} entre precisão e desempenho nessa etapa. 
 
-Mostar o impacto no desempenho CPU e GPU.
+O \textit{inlining} das funções time\_2d, su\_get\_midpoint e su\_get\_halfoffset não resultou em nenhuma otimizações. Contudo, o inlining da interpol\_linear, presente no trexo mais quente do \textit{kernel}, vista no Quadro \ref{interpol} , possibilitou diversas simplificações. \\
 
-\subsubsection{\textit{Loop Invariant Code Motion}}
+\begin{lstlisting}[language=c, caption=Trexo de chamada da função interpol\_linear antes do \textit{inlining}., label=interpol]
+  float interpol_linear(float x0,float x1,float y0,float y1,float x)
+  {
+    return (y1 - y0) * (x - x0) / (x1 - x0) + y0;
+  }
+  ...
+  if (it - tau >= 0 && it + tau < tr->ns) {
+    for (int j = 0; j < w; j++) {
+      int k = it + j - tau;
+      float v = interpol_linear(k, k+1,
+                                tr->data[k], tr->data[k+1],
+                                t*idt + j - tau);
+      num[j] += v;
+      den[j] += v*v;
+      _stack += v;
+    }
+    M++;
+}
+\end{lstlisting}
 
-Mostrar como alguns trexos do código são independentes das variáveis de indução e por isso podem ser movidos para fora do loop e até mesmo para fora do kernel.
+Trocando os valores de $(y1 - y0) * (x - x0) / (x1 - x0) + y0$ pelos valores da chamada da função, obtemos: 
+$$(tr.data[k+1] - tr.data[k]) * (t*idt + j - tau - k) / (k + 1 - k) + tr.data[k+1] = $$
+$$ = (tr.data[k+1] - tr.data[k]) * (t*idt + j - tau - k) + tr.data[k+1] \Rightarrow $$
+Sabendo que $k = it + j - tau;$, temos:
+$$ \Rightarrow (tr.data[k+1] - tr.data[k]) * (t*idt + j - tau - it - j + tau) + tr.data[k+1] = $$
+$$ = (tr.data[k+1] - tr.data[k]) * (t*idt - it) + tr.data[k+1] \Rightarrow$$
+Como $(t*idt - it)$ é independente da variável de indução, tiramos ele do laço:
+$$ \Rightarrow (tr.data[k+1] - tr.data[k]) * v2 + tr.data[k+1] =$$
+$$ = tr.data[k+1]*v2 - tr.data[k]*v2 + tr.data[k+1] = $$
+$$ = tr.data[k+1]*v2 + tr.data[k]*(1-v2)$$.
 
-Mostrar o impacto no desempenho do código.
+O resultado pode ser visto no código do Quadro \ref{alg}.\\
+
+\begin{lstlisting}[language=c, caption=Estrutura su\_trace depois de compactada., label=alg]
+  int base = it - tau;
+  if (base >= 0 && it + tau < 2502) {
+    float v2 = (t*idt - it);
+    for (int j = 0; j < w; j++) {
+      int k = base + j;
+      float v = tr->data[k+1]*v2 + tr->data[k]*(1-v2);
+      num[j] += v;
+      den[j] += v*v;
+      _stack += v;
+    }
+    M++;
+   }
+\end{lstlisting}
+
+Ainda, foi possível perceber que as chamadas das função su\_get\_midpoint, su\_get\_halfoffset e parte da função time\_2d no \textit{kernel} são independentes da variavel de indução do laço no qual estão inseridas. Portanto, optou-se por mover esse trexo do código para o host. Dessa forma, há, no host, um pré-calculo dos valores que seram utilizados posteriormente pelo \textit{kernel}.
+
+Essas transformações resultaram em um impacto no desempenho na GPU, mas não tanto quanto na CPU, como podemos ver no gráfico da Fígura \ref{fgclsimpl}. Na CPU o desempenho foi de 1.075 segundos para Param1, 3.44 segundos para Param2 e 3.45 segundos para Param3.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{oclsimpl.pdf}
+\caption{Tempos de execução do código com OpenCL com \textit{inlining} sobre a CPU e GPU antes e depois das simplificações.}
+\label{fgclsimpl}
+\end{figure}
 
 \subsubsection{\textit{Constant Memory Space}}
 
-Explicar sobre a constant memory space nas GPUs, falar sobre o tamanho dessa memória na GPU da Intel.
+As GPUs possuem memórias constantes para texturas que são tão rápidas quanto a cache. Para aumentar o desempenho, movemos todas os dados que estavam na memória global, menos o "data", já que esse é grande de mais. Para isso, foi apenas necessário trocar as \textit{flags} \_\_global por \_\_constant na frente dos atríbutos do \textit{kernel}.
 
-Falar quais dados foram escolhidos para ir memória constant.
+Essa modificação trouxe melhorias para o desempenho do código na GPU, mas não na CPU. O gráfico da Figura \ref{fgclconst} mostra o ganho de desempenho na GPU depois de aplicado a transformação.
 
-Mostrar o impacto no desempenho.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{oclconst.pdf}
+\caption{Tempos de execução do código com OpenCL com \textit{inlining} sobre a GPU antes e depois de mover os dados para memória de constantes.}
+\label{fgclconst}
+\end{figure}
 
 \subsubsection{Reduzindo a Pressão Sobre os Registradores }
 
-Falar sobre a hipótese fato que o desempenho do kernel estava sendo limitado por memory bound.
+Analisando o código e retirando trexos para verificar o impacto no desempenho, observou-se que o desempenho estava sendo limitado pela memória. Contudo, os dois acessos visíveis a memória estavam tendo bom aproveitamento da cache e quando retirados não afetavam em muito o desempenho. Em uma análise mais minuciosa, percebeu-se que o que estava gerando o gargalo no desempenho era a pressão sobre os registradores. Pela falta de registradores, a constante troca dos valores dos registradores para a memória estava delimitando o desempenho. 
 
-Mas, tirar os acessos diretos a memória não estavam surtindo efeito e eram sequências.
+Para resolver esse problema, analisou-se o tempo de vida de cada variável na memória local e tentou-se ao máximo diminuir o seu uso. O vetor num e den (Quadro \ref{spill}) ocupam 10 floats na memória privada e devem ficar vivo até o final do \textit{kernel}. Portanto, possuem grande potêncial para \textit{register spill}. \\
 
-Falar que havia a desconfiança que estava ocorrendo register spill.
+\begin{lstlisting}[language=c, caption=Código não otimizado e com muitos \textit{register spill}., label=spill]
+  float num[5]
+  float den[5];  // <= 10 floats na memoria local que sobrevivem ate o final do loop!
+  ...
+  int base = it - tau;
+  if (base >= 0 && it + tau < 2502) {
+    float v2 = (t*idt - it);
+    for (int j = 0; j < w; j++) {
+      int k = base + j;
+      float v = tr->data[k+1]*v2 + tr->data[k]*(1-v2);
+      num[j] += v;
+      den[j] += v*v;
+      _stack += v;
+    }
+    M++;
+   }
+   
+   float aux = 0; 
+   float sem = 0;
+   for (int j = 0; j < w; j++) {
+     sem += num[j] * num[j];
+     aux += den[j];
+   }
+\end{lstlisting}
 
-Mostrar como os dados foram levados a memória local.
+Escolheu-se por aplicar uma simplificação algébrica para remover o den e transferir o num da memória privada para local, resultado no código do Quadro \ref{spill2}.
 
-Mostrar o impacto no desempenho.
+\begin{lstlisting}[language=c, caption=Código depois da otimização sobre a memória privda., label=spill2]
+  __local float num[5*4*4*4];
+  int basenum = get_local_id(0)*5 + get_local_id(1)*20 + get_local_id(2)*80;
+  float aux = 0; 
+  ...
+  int base = it - tau;
+  if (base >= 0 && it + tau < 2502) {
+    float v2 = (t*idt - it);
+    for (int j = 0; j < w; j++) {
+      int k = base + j;
+      float v = tr->data[k+1]*v2 + tr->data[k]*(1-v2);
+      num[basenum+j] += v;
+      aux += v*v;
+      _stack += v;
+    }
+    M++;
+   }
+   
+   float sem = 0;
+   for (int j = 0; j < w; j++) {
+     sem += num[basenum + j] * num[basenum + j];
+   }
+\end{lstlisting}
+
+Essa simples modificação no código diminuiu a pressão (10 floats para apenas 1) sobre os registradores e aumentou drasticamente o desempenho na GPU - não modificou na CPU (talvez por conter menos registradores). O resultado pode ser visto no gráfico da Figura \ref{fgclpressure}. Sendo que o desempenho foi de 0.38 segundos para Param1, 0.50 segundos para Param2 e 0.49 segundos para Param3.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{oclpressure.pdf}
+\caption{Tempos de execução do código com OpenCL com \textit{inlining} sobre a GPU antes e depois de mover os dados para memória de constantes.}
+\label{fgclpressure}
+\end{figure}
 
 \subsection{Otimizações Não Implementadas ou Não Mantidas}
 
@@ -403,21 +666,9 @@ Falar sobre o fato que algumas otimizações não foram aplicadas.
 
 Falar sobre vetorização no OpenCL e como tentamos aplicar, mas que não houve nenhum benefício.
 
-\subsubsection{Redução}
-
-Falar sobre a posibilidade de fazer alguma espécie de redução, mas que não conseguimos encontrar espaço para essa otimização.
-
 \subsubsection{\textit{Loop Blocking}}
 
 Argumentar que o código não é memory bound e que blocking não seria eficiente.
-
-\section{Problemas Encontrados}
-
-Falar sobre manter corretude sem a alocação;
-
-Falar que não foi escolhido adicionar diversos defines.
-
-Argumentar que muitas das otimizações podem ter diminuido a corretude do código para outras entradas.
 
 \section{Trabalhos Futuros}
 
@@ -429,11 +680,23 @@ Falar sobre as posiveis otimizações que ainda podem ser aplicadas.
 
 \section{Conclusão}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{final.pdf}
+\caption{Tempos de execução do código com OpenCL com \textit{inlining} sobre a GPU antes e depois de mover os dados para memória de constantes.}
+\label{fgclpressure}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{ss.png}
+\caption{Taxa de utilização da GPU durante a execução dos experimentos segundo o intel\_gpu\_top.}
+\label{fss}
+\end{figure}
+
 Tentar analisar o desempenho teórico do hardware. Tentar argumentar o desempenho alcançado.
 
 Falar sobre o OpenCL e as otimizações encontradas. Falar sobre os problemas e os trabalhos futuros.
 
-\bibliographystyle{sbc}
-\bibliography{sbc-template}
 
 \end{document}
